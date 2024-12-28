@@ -69,8 +69,8 @@ class ValidatorMonitor {
                 alerts.push(`🚨 Reputation turned negative! Current: ${currentRep}`);
             }
 
-            if (currentRep < -2000 && lastRep >= -2000) {
-                alerts.push(`🚨 Reputation fell below -2000! Current: ${currentRep}`);
+            if (currentRep < 2500 && lastRep >= 2500) {
+                alerts.push(`🚨 Reputation fell below 2500! Current: ${currentRep}`);
             }
         }
 
