@@ -5,23 +5,31 @@ const checkDiskSpace = require('check-disk-space').default;
 class ChainflipMonitor {
     constructor() {
         this.services = ['chainflip-node', 'chainflip-engine'];
+        this.chainDataPath = '/etc/chainflip/chaindata';
     }
 
     async checkDiskSpace() {
         try {
-            const info = await checkDiskSpace('/');
+            // Check Chainflip data directory specifically
+            const info = await checkDiskSpace(this.chainDataPath);
             const total = info.size;
             const free = info.free;
             const used = total - free;
             const percentage = ((used / total) * 100).toFixed(2);
             
+            // Get mount point information
+            const { stdout: dfOutput } = await exec(`df -h ${this.chainDataPath}`);
+            const mountInfo = dfOutput.split('\n')[1]; // Get the second line which contains the mount info
+            const mountPoint = mountInfo.split(/\s+/)[5]; // Get the mount point
+            
             return {
                 percentage,
                 free: (free / 1024 / 1024 / 1024).toFixed(2), // Convert to GB
-                total: (total / 1024 / 1024 / 1024).toFixed(2) // Convert to GB
+                total: (total / 1024 / 1024 / 1024).toFixed(2), // Convert to GB
+                mountPoint
             };
         } catch (error) {
-            throw new Error(`Error checking disk space: ${error.message}`);
+            throw new Error(`Error checking Chainflip data directory space: ${error.message}`);
         }
     }
 
@@ -53,7 +61,7 @@ class ChainflipMonitor {
         );
 
         return `📊 Daily Chainflip Validator Report\n\n` +
-               `💾 Disk Space:\n` +
+               `💾 Chainflip Data Directory (${diskInfo.mountPoint}):\n` +
                `Used: ${diskInfo.percentage}%\n` +
                `Free: ${diskInfo.free} GB\n` +
                `Total: ${diskInfo.total} GB\n\n` +
