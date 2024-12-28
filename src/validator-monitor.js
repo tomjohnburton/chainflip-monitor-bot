@@ -7,6 +7,12 @@ class ValidatorMonitor {
         this.lastReputation = null;
     }
 
+    calculateTotalBalance(locked, unlocked) {
+        // Convert from Wei-like to FLIP (divide by 10^18)
+        const total = (BigInt(locked) + BigInt(unlocked));
+        return Number(total) / Math.pow(10, 18);
+    }
+
     async fetchValidatorStatus() {
         try {
             const response = await fetch("https://cache-service.chainflip.io/graphql", {
@@ -72,6 +78,23 @@ class ValidatorMonitor {
             if (currentRep < 2500 && lastRep >= 2500) {
                 alerts.push(`🚨 Reputation fell below 2500! Current: ${currentRep}`);
             }
+
+            // Check balance changes
+            const lastTotal = this.calculateTotalBalance(
+                this.lastStatus.lockedBalance, 
+                this.lastStatus.unlockedBalance
+            );
+            const currentTotal = this.calculateTotalBalance(
+                currentStatus.lockedBalance, 
+                currentStatus.unlockedBalance
+            );
+
+            if (currentTotal < lastTotal) {
+                alerts.push(`💰 Total balance decreased!\n` +
+                           `Previous: ${lastTotal.toFixed(2)} FLIP\n` +
+                           `Current: ${currentTotal.toFixed(2)} FLIP\n` +
+                           `Change: -${(lastTotal - currentTotal).toFixed(2)} FLIP`);
+            }
         }
 
         this.lastStatus = currentStatus;
@@ -84,9 +107,17 @@ class ValidatorMonitor {
     generateValidatorReport() {
         if (!this.lastStatus) return 'No validator data available';
 
+        const totalBalance = this.calculateTotalBalance(
+            this.lastStatus.lockedBalance,
+            this.lastStatus.unlockedBalance
+        );
+
         return `🏷️ Validator: ${this.lastStatus.alias} (${this.lastStatus.idSs58.slice(0, 8)}...)\n` +
                `📈 APY: ${this.lastStatus.apyBp/100}%\n` +
                `🏆 Reputation: ${this.lastStatus.reputationPoints}\n` +
+               `💰 Total Balance: ${totalBalance.toFixed(2)} FLIP\n` +
+               `  • Locked: ${(Number(this.lastStatus.lockedBalance) / Math.pow(10, 18)).toFixed(2)} FLIP\n` +
+               `  • Unlocked: ${(Number(this.lastStatus.unlockedBalance) / Math.pow(10, 18)).toFixed(2)} FLIP\n` +
                `\n🔐 Status:\n` +
                `Authority: ${this.lastStatus.isCurrentAuthority ? '✅' : '❌'}\n` +
                `Backup: ${this.lastStatus.isCurrentBackup ? '✅' : '❌'}\n` +
