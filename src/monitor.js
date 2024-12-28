@@ -44,10 +44,17 @@ class ChainflipMonitor {
         }
     }
 
-    async getServiceStatus(service) {
+    async getServiceStatus(service, full = false) {
         try {
-            const { stdout } = await exec(`systemctl status ${service}`);
-            return stdout;
+            let command = full 
+                ? `systemctl status ${service}` 
+                : `systemctl status ${service} --no-pager --lines=10`;
+            
+            const { stdout } = await exec(command);
+            // Trim the output to fit Telegram's message limit (4096 characters)
+            return stdout.length > 3800 
+                ? stdout.slice(0, 3800) + '\n... (truncated)'
+                : stdout;
         } catch (error) {
             return `Error getting ${service} status: ${error.message}`;
         }
@@ -92,9 +99,12 @@ class ChainflipMonitor {
             const isActive = await this.checkService(service);
             
             if (isActive) {
-                return `✅ ${service} has been restarted successfully`;
+                // Get brief status after successful restart
+                const status = await this.getServiceStatus(service, false);
+                return `✅ ${service} has been restarted successfully\n\nStatus:\n${status}`;
             } else {
-                const status = await this.getServiceStatus(service);
+                // Get brief status if service failed to start
+                const status = await this.getServiceStatus(service, false);
                 return `⚠️ ${service} restart completed but service is not active.\n\nStatus:\n${status}`;
             }
         } catch (error) {
@@ -111,11 +121,12 @@ class ChainflipMonitor {
             // Get last 20 lines of logs
             const { stdout } = await exec(`journalctl -u ${service} -n 20 --no-pager`);
             
-            // Format logs for Telegram
+            // Format logs for Telegram and ensure it's not too long
             const formattedLogs = stdout
                 .split('\n')
                 .map(line => line.trim())
-                .join('\n');
+                .join('\n')
+                .slice(0, 3800); // Ensure we don't exceed Telegram's limit
 
             return `📜 Last 20 lines of ${service} logs:\n\n<pre>${formattedLogs}</pre>`;
         } catch (error) {
