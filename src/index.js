@@ -85,6 +85,71 @@ schedule.scheduleJob('0 9 * * *', sendDailyReport);
 // Check alerts every 5 minutes
 schedule.scheduleJob('*/5 * * * *', checkAlerts);
 
+// Command handler for /actions
+bot.onText(/\/actions/, async (msg) => {
+    // Only respond to authorized users
+    if (msg.chat.id.toString() !== CHAT_ID) {
+        return;
+    }
+
+    const options = {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    { text: '🔄 Restart Node', callback_data: 'restart_node' },
+                    { text: '🔄 Restart Engine', callback_data: 'restart_engine' }
+                ],
+                [
+                    { text: '📜 Node Logs', callback_data: 'logs_node' },
+                    { text: '📜 Engine Logs', callback_data: 'logs_engine' }
+                ]
+            ]
+        }
+    };
+
+    await bot.sendMessage(msg.chat.id, 'Choose an action:', options);
+});
+
+// Handle button callbacks
+bot.on('callback_query', async (callbackQuery) => {
+    const chatId = callbackQuery.message.chat.id;
+    
+    // Only respond to authorized users
+    if (chatId.toString() !== CHAT_ID) {
+        return;
+    }
+
+    const action = callbackQuery.data;
+    let response = '';
+
+    try {
+        switch (action) {
+            case 'restart_node':
+                response = await monitor.restartService('chainflip-node');
+                break;
+            case 'restart_engine':
+                response = await monitor.restartService('chainflip-engine');
+                break;
+            case 'logs_node':
+                response = await monitor.getServiceLogs('chainflip-node');
+                break;
+            case 'logs_engine':
+                response = await monitor.getServiceLogs('chainflip-engine');
+                break;
+        }
+
+        // Answer the callback query to remove the loading state
+        await bot.answerCallbackQuery(callbackQuery.id);
+        
+        // Send the response
+        await bot.sendMessage(chatId, response, { parse_mode: 'HTML' });
+    } catch (error) {
+        console.error('Error handling callback:', error);
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Error executing command' });
+        await bot.sendMessage(chatId, `Error: ${error.message}`);
+    }
+});
+
 console.log('Chainflip Monitor Bot started');
 
 // Export functions for testing

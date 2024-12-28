@@ -78,6 +78,50 @@ class ChainflipMonitor {
     async checkValidatorStatus() {
         return this.validatorMonitor.checkForChanges();
     }
+
+    async restartService(service) {
+        try {
+            if (!this.services.includes(service)) {
+                throw new Error('Invalid service name');
+            }
+
+            await exec(`systemctl restart ${service}`);
+            
+            // Wait a moment and check the status
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const isActive = await this.checkService(service);
+            
+            if (isActive) {
+                return `✅ ${service} has been restarted successfully`;
+            } else {
+                const status = await this.getServiceStatus(service);
+                return `⚠️ ${service} restart completed but service is not active.\n\nStatus:\n${status}`;
+            }
+        } catch (error) {
+            throw new Error(`Failed to restart ${service}: ${error.message}`);
+        }
+    }
+
+    async getServiceLogs(service) {
+        try {
+            if (!this.services.includes(service)) {
+                throw new Error('Invalid service name');
+            }
+
+            // Get last 20 lines of logs
+            const { stdout } = await exec(`journalctl -u ${service} -n 20 --no-pager`);
+            
+            // Format logs for Telegram
+            const formattedLogs = stdout
+                .split('\n')
+                .map(line => line.trim())
+                .join('\n');
+
+            return `📜 Last 20 lines of ${service} logs:\n\n<pre>${formattedLogs}</pre>`;
+        } catch (error) {
+            throw new Error(`Failed to get logs for ${service}: ${error.message}`);
+        }
+    }
 }
 
 module.exports = ChainflipMonitor; 
