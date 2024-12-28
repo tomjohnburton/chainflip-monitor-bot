@@ -89,11 +89,16 @@ class ValidatorMonitor {
                 currentStatus.unlockedBalance
             );
 
-            if (currentTotal < lastTotal) {
-                alerts.push(`💰 Total balance decreased!\n` +
+            // Calculate percentage change
+            const change = lastTotal - currentTotal;
+            const percentageChange = (change / lastTotal) * 100;
+
+            // Alert only if decrease is more than 1%
+            if (currentTotal < lastTotal && percentageChange > 1) {
+                alerts.push(`💰 Significant balance decrease detected!\n` +
                            `Previous: ${lastTotal.toFixed(2)} FLIP\n` +
                            `Current: ${currentTotal.toFixed(2)} FLIP\n` +
-                           `Change: -${(lastTotal - currentTotal).toFixed(2)} FLIP`);
+                           `Change: -${change.toFixed(2)} FLIP (-${percentageChange.toFixed(2)}%)`);
             }
         }
 
