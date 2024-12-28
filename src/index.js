@@ -102,6 +102,9 @@ bot.onText(/\/actions/, async (msg) => {
                 [
                     { text: '📜 Node Logs', callback_data: 'logs_node' },
                     { text: '📜 Engine Logs', callback_data: 'logs_engine' }
+                ],
+                [
+                    { text: '📊 Generate Report', callback_data: 'generate_report' }
                 ]
             ]
         }
@@ -135,6 +138,9 @@ bot.on('callback_query', async (callbackQuery) => {
                 break;
             case 'logs_engine':
                 response = await monitor.getServiceLogs('chainflip-engine');
+                break;
+            case 'generate_report':
+                response = await monitor.generateDailyReport();
                 break;
         }
 
