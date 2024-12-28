@@ -1,11 +1,13 @@
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const checkDiskSpace = require('check-disk-space').default;
+const ValidatorMonitor = require('./validator-monitor');
 
 class ChainflipMonitor {
-    constructor() {
+    constructor(validatorId) {
         this.services = ['chainflip-node', 'chainflip-engine'];
         this.chainDataPath = '/etc/chainflip/chaindata';
+        this.validatorMonitor = new ValidatorMonitor(validatorId);
     }
 
     async checkDiskSpace() {
@@ -52,7 +54,11 @@ class ChainflipMonitor {
     }
 
     async generateDailyReport() {
-        const diskInfo = await this.checkDiskSpace();
+        const [diskInfo, validatorStatus] = await Promise.all([
+            this.checkDiskSpace(),
+            this.validatorMonitor.checkForChanges()
+        ]);
+
         const serviceStatuses = await Promise.all(
             this.services.map(async (service) => {
                 const isActive = await this.checkService(service);
@@ -65,7 +71,12 @@ class ChainflipMonitor {
                `Used: ${diskInfo.percentage}%\n` +
                `Free: ${diskInfo.free} GB\n` +
                `Total: ${diskInfo.total} GB\n\n` +
-               `🔧 Services Status:\n${serviceStatuses.join('\n')}`;
+               `🔧 Services Status:\n${serviceStatuses.join('\n')}\n\n` +
+               `${this.validatorMonitor.generateValidatorReport()}`;
+    }
+
+    async checkValidatorStatus() {
+        return this.validatorMonitor.checkForChanges();
     }
 }
 

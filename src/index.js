@@ -4,7 +4,7 @@ const schedule = require('node-schedule');
 const ChainflipMonitor = require('./monitor');
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
-const monitor = new ChainflipMonitor();
+const monitor = new ChainflipMonitor(process.env.VALIDATOR_ID);
 const CHAT_ID = process.env.CHAT_ID;
 const DISK_THRESHOLD = process.env.DISK_THRESHOLD || 5;
 
@@ -45,6 +45,33 @@ async function sendDailyReport() {
         console.error('Error sending daily report:', error);
     }
 }
+
+// Add validator status check
+async function checkValidatorStatus() {
+    try {
+        const { alerts } = await monitor.checkValidatorStatus();
+        if (alerts.length > 0) {
+            await sendMessage(alerts.join('\n'));
+        }
+    } catch (error) {
+        console.error('Error checking validator status:', error);
+    }
+}
+
+// Schedule validator checks every 5 minutes
+schedule.scheduleJob('*/5 * * * *', checkValidatorStatus);
+
+// For negative reputation, check every 2 hours
+schedule.scheduleJob('0 */2 * * *', async () => {
+    try {
+        const { status } = await monitor.checkValidatorStatus();
+        if (status.reputationPoints < 0) {
+            await sendMessage(`⚠️ Reminder: Reputation is still negative (${status.reputationPoints})`);
+        }
+    } catch (error) {
+        console.error('Error checking reputation:', error);
+    }
+});
 
 // Send initial report on startup
 console.log('Chainflip Monitor Bot starting...');
